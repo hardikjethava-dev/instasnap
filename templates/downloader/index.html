@@ -1,0 +1,142 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Hardik Jethava">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>InstaSnap - Ultimate Instagram Downloader</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1">
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle-container">
+        <button id="theme-toggle-btn" class="btn btn-theme-toggle" aria-label="Toggle theme">
+            <i class="bi bi-moon-stars-fill fs-5" id="theme-icon"></i>
+        </button>
+    </div>
+
+    <!-- Background Ambient Glows -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="ambient-glow glow-3"></div>
+
+    <div class="container py-5">
+        <!-- Header -->
+        <header class="text-center mb-5 fade-in">
+            <h1 class="display-4 font-outfit gradient-text fw-extrabold mb-2">InstaSnap</h1>
+            <p class="text-muted fs-5">Download Instagram Reels, Photos, Videos, and Carousels instantly</p>
+        </header>
+
+        <!-- Main Card Container -->
+        <main class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <div class="glass-card fade-in delay-1">
+                    <!-- URL Input Form -->
+                    <section class="p-4 p-md-5 border-bottom border-secondary-subtle">
+                        <h2 class="h4 font-outfit mb-3 text-light">Enter Post Link</h2>
+                        <form id="downloader-form" method="POST" novalidate>
+                            {% csrf_token %}
+                            <div class="input-group input-group-lg search-box-container">
+                                <span class="input-group-text bg-transparent border-end-0 text-muted">
+                                    <i class="bi bi-link-45deg fs-4"></i>
+                                </span>
+                                {{ form.url }}
+                            </div>
+                            <div class="form-text text-muted mt-2">
+                                Supported formats: Reels, Posts (/p/), and TV (/tv/) links
+                            </div>
+                        </form>
+                    </section>
+
+                    <!-- Loader / Loading State -->
+                    <section id="loader-section" class="p-5 text-center d-none">
+                        <div class="loader-spinner mb-4 mx-auto"></div>
+                        <h3 class="h5 font-outfit text-light mb-2" id="loader-title">Fetching metadata...</h3>
+                        <p class="text-muted small mb-0" id="loader-subtitle">Retrieving details from Instagram's CDN</p>
+                    </section>
+
+                    <!-- Error State -->
+                    <section id="error-section" class="p-4 text-center d-none">
+                        <div class="alert alert-danger-custom d-inline-flex flex-column align-items-center justify-content-center p-4 rounded-4" role="alert" style="max-width: 500px; margin: 0 auto;">
+                            <i class="bi bi-exclamation-circle-fill fs-1 text-danger mb-2"></i>
+                            <h4 class="font-outfit fw-bold text-light mb-2">Oops! Something went wrong</h4>
+                            <p class="mb-0 text-muted small" style="line-height: 1.5;" id="error-message">This media file cannot be processed at the moment. It might be private or the link could be invalid.</p>
+                        </div>
+                    </section>
+
+                    <!-- Results Area -->
+                    <section id="results-section" class="p-4 p-md-5 d-none">
+                        <h2 class="h4 font-outfit text-light mb-4 text-center text-md-start">Ready for Download</h2>
+                        
+                        <div class="row g-4 align-items-center">
+                            <!-- Metadata Column -->
+                            <div class="col-12">
+                                <h3 id="result-title" class="h5 text-light mb-3 font-outfit text-truncate-2">Post Title/Caption</h3>
+                                
+                                <div class="metadata-grid d-flex flex-wrap gap-2 mb-4">
+                                    <span class="badge bg-secondary-custom rounded-pill px-3 py-2">
+                                        <i class="bi bi-tag-fill me-1"></i> <span id="meta-type">Photo</span>
+                                    </span>
+                                    <span class="badge bg-secondary-custom rounded-pill px-3 py-2">
+                                        <i class="bi bi-calendar-event-fill me-1"></i> <span id="meta-date">Date</span>
+                                    </span>
+                                    <span class="badge bg-secondary-custom rounded-pill px-3 py-2">
+                                        <i class="bi bi-clock-fill me-1"></i> <span id="meta-duration">Duration</span>
+                                    </span>
+                                    <span class="badge bg-secondary-custom rounded-pill px-3 py-2">
+                                        <i class="bi bi-aspect-ratio-fill me-1"></i> <span id="meta-resolution">Resolution</span>
+                                    </span>
+                                </div>
+
+                                <!-- Dynamic ZIP Download Button -->
+                                <div id="zip-download-container" class="mt-3">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Individual Files Grid (Horizontally Spaced) -->
+                        <div id="individual-files-section" class="mt-4 d-none">
+                            <hr class="border-secondary-subtle my-4">
+                            <h4 class="h5 font-outfit text-light mb-3 text-center text-md-start">Individual Files</h4>
+                        </div>
+                        <div id="download-buttons-container" class="mt-3">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </section>
+                </div>
+
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="text-center mt-5 py-4 text-muted small border-top border-secondary-subtle fade-in delay-3">
+            <p class="mb-0">&copy; 2026 InstaSnap. Developed by Hardik Jethava.</p>
+        </footer>
+    </div>
+
+
+
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom Application Javascript -->
+    <script src="{% static 'js/app.js' %}?v=1.1"></script>
+</body>
+</html>
