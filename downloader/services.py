@@ -332,6 +332,45 @@ def download_media_instaloader(url: str, task_id: str):
     logger.info(f"Instaloader download worker completed successfully for Task ID: {task_id}")
     update_task_status(task_id, 'completed', files=downloaded_files, zip_file=zip_data)
 
+def select_best_progressive_format(formats: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Selects the highest quality progressive format (containing both video and audio).
+    A format is progressive if:
+    1. It has a video extension (typically 'mp4').
+    2. Its vcodec is not 'none' and acodec is not 'none'.
+    """
+    if not formats:
+        return None
+    
+    progressive_formats = []
+    for f in formats:
+        ext = f.get('ext') or ''
+        vcodec = f.get('vcodec')
+        acodec = f.get('acodec')
+        
+        # Must be a video extension (typically 'mp4' on Instagram)
+        if ext not in ['mp4', 'webm', 'mkv']:
+            continue
+            
+        # Codecs must not be 'none'
+        if vcodec != 'none' and acodec != 'none':
+            progressive_formats.append(f)
+            
+    if progressive_formats:
+        return progressive_formats[-1]
+        
+    return None
+
+def get_format_extension(format_dict: Dict[str, Any]) -> str:
+    """Gets correct extension for format dict."""
+    ext = format_dict.get('ext')
+    if ext:
+        return ext
+    vcodec = format_dict.get('vcodec')
+    if vcodec and vcodec != 'none':
+        return 'mp4'
+    return 'jpg'
+
 def download_media_worker(url: str, task_id: str):
     """Worker task run in the background to fetch media streams via requests."""
     logger.info(f"Download started in background for Task ID: {task_id}")
@@ -370,13 +409,18 @@ def download_media_worker(url: str, task_id: str):
         media_items = []
         if 'entries' in info:
             for idx, entry in enumerate(info['entries']):
-                media_url = entry.get('url')
-                if not media_url and entry.get('formats'):
-                    formats = entry.get('formats', [])
-                    if formats:
-                        media_url = formats[-1].get('url')
+                formats = entry.get('formats', [])
+                selected_format = select_best_progressive_format(formats) if formats else None
                 
-                ext = entry.get('ext') or ('mp4' if (entry.get('vcodec') and entry.get('vcodec') != 'none') else 'jpg')
+                if selected_format:
+                    media_url = selected_format.get('url')
+                    ext = get_format_extension(selected_format)
+                else:
+                    media_url = entry.get('url')
+                    if not media_url and formats:
+                        media_url = formats[-1].get('url')
+                    ext = entry.get('ext') or ('mp4' if (entry.get('vcodec') and entry.get('vcodec') != 'none') else 'jpg')
+                
                 if media_url:
                     media_items.append({
                         'url': media_url,
@@ -384,13 +428,18 @@ def download_media_worker(url: str, task_id: str):
                         'name': f"media_{idx + 1}"
                     })
         else:
-            media_url = info.get('url')
-            if not media_url and info.get('formats'):
-                formats = info.get('formats', [])
-                if formats:
+            formats = info.get('formats', [])
+            selected_format = select_best_progressive_format(formats) if formats else None
+            
+            if selected_format:
+                media_url = selected_format.get('url')
+                ext = get_format_extension(selected_format)
+            else:
+                media_url = info.get('url')
+                if not media_url and formats:
                     media_url = formats[-1].get('url')
-                    
-            ext = info.get('ext') or ('mp4' if (info.get('vcodec') and info.get('vcodec') != 'none') else 'jpg')
+                ext = info.get('ext') or ('mp4' if (info.get('vcodec') and info.get('vcodec') != 'none') else 'jpg')
+                
             if media_url:
                 media_items.append({
                     'url': media_url,
