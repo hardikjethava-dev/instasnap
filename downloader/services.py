@@ -23,6 +23,20 @@ download_executor = ThreadPoolExecutor(max_workers=4)
 DOWNLOAD_TASKS: Dict[str, Dict[str, Any]] = {}
 tasks_lock = threading.Lock()
 
+def get_proxy_config() -> Optional[str]:
+    """Retrieves proxy string from environment variables."""
+    return os.environ.get('INSTAGRAM_PROXY') or os.environ.get('HTTPS_PROXY') or os.environ.get('HTTP_PROXY')
+
+def get_requests_proxies() -> Optional[Dict[str, str]]:
+    """Generates proxies dictionary for the requests library and instaloader."""
+    proxy = get_proxy_config()
+    if proxy:
+        return {
+            'http': proxy,
+            'https': proxy
+        }
+    return None
+
 def validate_instagram_url(url: str) -> bool:
     """
     Validates that a URL is a valid Instagram Reel, Post, or TV URL.
@@ -63,6 +77,9 @@ def extract_metadata_instaloader(url: str) -> Dict[str, Any]:
     shortcode = m.group(1)
     
     L = instaloader.Instaloader()
+    proxies = get_requests_proxies()
+    if proxies:
+        L.context.session.proxies = proxies
     try:
         post = instaloader.Post.from_shortcode(L.context, shortcode)
     except Exception as e:
@@ -114,6 +131,9 @@ def extract_metadata(url: str) -> Dict[str, Any]:
         'no_warnings': True,
         'extract_flat': False,
     }
+    proxy = get_proxy_config()
+    if proxy:
+        ydl_opts['proxy'] = proxy
     
     cookies_path = os.path.join(settings.BASE_DIR, 'cookies.txt')
     if os.path.exists(cookies_path):
@@ -239,6 +259,9 @@ def download_media_instaloader(url: str, task_id: str):
     shortcode = m.group(1)
     
     L = instaloader.Instaloader()
+    proxies = get_requests_proxies()
+    if proxies:
+        L.context.session.proxies = proxies
     post = instaloader.Post.from_shortcode(L.context, shortcode)
     
     media_items = []
@@ -283,7 +306,7 @@ def download_media_instaloader(url: str, task_id: str):
             raise ValueError("Path traversal violation during writing.")
             
         logger.info(f"Instaloader fallback: Streaming direct link to {filepath}")
-        r = requests.get(item['url'], headers=headers, stream=True, timeout=45)
+        r = requests.get(item['url'], headers=headers, stream=True, timeout=45, proxies=get_requests_proxies())
         r.raise_for_status()
         
         with open(filepath, 'wb') as f:
@@ -321,6 +344,9 @@ def download_media_worker(url: str, task_id: str):
             'no_warnings': True,
             'extract_flat': False,
         }
+        proxy = get_proxy_config()
+        if proxy:
+            ydl_opts['proxy'] = proxy
         cookies_path = os.path.join(settings.BASE_DIR, 'cookies.txt')
         if os.path.exists(cookies_path):
             ydl_opts['cookiefile'] = cookies_path
@@ -396,7 +422,7 @@ def download_media_worker(url: str, task_id: str):
                 raise ValueError("Path traversal violation during writing.")
                 
             logger.info(f"Streaming direct media link to {filepath}")
-            r = requests.get(item['url'], headers=headers, stream=True, timeout=45)
+            r = requests.get(item['url'], headers=headers, stream=True, timeout=45, proxies=get_requests_proxies())
             r.raise_for_status()
             
             with open(filepath, 'wb') as f:
